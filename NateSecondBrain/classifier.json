@@ -1,0 +1,1667 @@
+{
+  "name": "Second Brain: Entry & Classification (Template)",
+  "nodes": [
+    {
+      "parameters": {
+        "trigger": [
+          "message"
+        ],
+        "channelId": {
+          "__rl": true,
+          "value": "{{YOUR_SLACK_CHANNEL_ID}}",
+          "mode": "list",
+          "cachedResultName": "{{YOUR_CHANNEL_NAME}}"
+        },
+        "options": {
+          "userIds": [
+            "{{YOUR_SLACK_USER_ID}}"
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.slackTrigger",
+      "typeVersion": 1,
+      "position": [
+        -192,
+        576
+      ],
+      "id": "f443b574-06b1-48f3-a15f-82d80808ffc2",
+      "name": "Slack Trigger",
+      "credentials": {
+        "slackApi": {
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{\"Input: \" + $json.text }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=## ROLE\nYou are a classification system for a personal knowledge management system. Your job is to analyze the user's captured thought and return structured JSON.\n\n\n## INSTRUCTIONS:\n1. Determine which category this belongs to:\n   - \"people\" - information about a person, relationship update, something someone said\n   - \"projects\" - a project, task with multiple steps, ongoing work\n   - \"ideas\" - a thought, insight, concept, something to explore later\n   - \"admin\" - a simple errand, one-off task, something with a due date\n\n2. Extract the relevant fields based on category\n\n3. Assign a confidence score (0.0 to 1.0):\n   - 0.9-1.0: Very clear category, obvious classification\n   - 0.7-0.89: Fairly confident, good match\n   - 0.5-0.69: Uncertain, could be multiple categories\n   - Below 0.5: Very unclear, needs human review\n\n4. If confidence is below 0.6, set destination to \"needs_review\"\n\nOUTPUT FORMAT (return ONLY this JSON, no other text). You'll be given a generic Output Format, but use the below rules as examples:\n\nFor PEOPLE:\n{\n  \"destination\": \"people\",\n  \"confidence\": 0.85,\n  \"data\": {\n    \"name\": \"Person's Name\",\n    \"context\": \"How you know them or their role\",\n    \"follow_ups\": \"Things to remember for next time\",\n    \"tags\": [\"work\", \"friend\"]\n  }\n}\n\nFor PROJECTS:\n{\n  \"destination\": \"projects\",\n  \"confidence\": 0.85,\n  \"data\": {\n    \"name\": \"Project Name\",\n    \"status\": \"Not started\" OR \"In progress\" OR \"Done\",\n    \"next_action\": \"Specific next action to take\",\n    \"notes\": \"Additional context\",\n    \"tags\": [\"work\"]\n  }\n}\n\nFor IDEAS:\n{\n  \"destination\": \"ideas\",\n  \"confidence\": 0.85,\n  \"data\": {\n    \"name\": \"Idea Title\",\n    \"one_liner\": \"Core insight in one sentence\",\n    \"notes\": \"Elaboration if provided\",\n    \"tags\": [\"product\"]\n  }\n}\n\nFor ADMIN:\n{\n  \"destination\": \"admin\",\n  \"confidence\": 0.85,\n  \"data\": {\n    \"name\": \"Task name\",\n    \"due_date\": \"2024-01-15 or null if not specified\",\n    \"notes\": \"Additional context\"\n  }\n}\n\nFor UNCLEAR (confidence below 0.6):\n{\n  \"destination\": \"needs_review\",\n  \"confidence\": 0.45,\n  \"data\": {\n    \"original_text\": \"The original message\",\n    \"possible_categories\": [\"projects\", \"admin\"],\n    \"reason\": \"Could be a project or a simple task\"\n  }\n}\n\n\n## RULES:\n- \"next_action\" must be specific and executable. \"Work on website\" is bad. \"Email Sarah to confirm deadline\" is good.\n- If a person's name is mentioned, consider if this is really about that person or about a project/task involving them\n- Status options for projects: \"active\", \"waiting\", \"blocked\", \"someday\"\n- Extract dates when mentioned and format as YYYY-MM-DD\n- If no clear tags apply, use an empty array []\n- Always return valid JSON with no markdown formatting\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        256,
+        0
+      ],
+      "id": "e28bab64-05d9-4339-a357-8a3ae0c29274",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"required\": [\"destination\", \"confidence\", \"data\"],\n  \"properties\": {\n    \"destination\": {\n      \"type\": \"string\",\n      \"enum\": [\"people\", \"projects\", \"ideas\", \"admin\", \"needs_review\"]\n    },\n    \"confidence\": {\n      \"type\": \"number\"\n    },\n    \"data\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"name\": { \"type\": \"string\" },\n        \"context\": { \"type\": \"string\" },\n        \"follow_ups\": { \"type\": \"string\" },\n        \"tags\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n        \"status\": { \"type\": \"string\", \"enum\": [\"Not started\", \"In progress\", \"Done\"] },\n        \"next_action\": { \"type\": \"string\" },\n        \"notes\": { \"type\": \"string\" },\n        \"one_liner\": { \"type\": \"string\" },\n        \"due_date\": { \"type\": \"string\" },\n        \"original_text\": { \"type\": \"string\" },\n        \"possible_categories\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n        \"reason\": { \"type\": \"string\" }\n      }\n    }\n  }\n}\n"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        400,
+        224
+      ],
+      "id": "a1e1ed33-6b37-406f-bda2-e80b3daa3cfa",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        272,
+        224
+      ],
+      "id": "cbbce49c-31eb-42a0-a973-d8add3786857",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output.destination == 'people' && $json.output.confidence > 0.59 }}",
+                    "rightValue": "true",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    },
+                    "id": "b0032c64-d804-41cc-abf5-ebf70ed2a938"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "People"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "0f7a096f-7c4c-4dfd-b1df-11c8c32f3f08",
+                    "leftValue": "={{ $json.output.destination == 'projects' && $json.output.confidence > 0.59 }}",
+                    "rightValue": "true",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Projects"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "0d9e1ef9-6092-4a77-a423-c4bb2e52cccf",
+                    "leftValue": "={{ $json.output.destination == 'ideas' && $json.output.confidence > 0.59 }}",
+                    "rightValue": "true",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Ideas"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "ab2a0ae0-6fad-4b0d-9383-88599b41805a",
+                    "leftValue": "={{ $json.output.destination == 'admin' && $json.output.confidence > 0.59 }}",
+                    "rightValue": "true",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Admin"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "54ace278-d38e-4049-b5f4-931c7e8c82a1",
+                    "leftValue": "={{ $json.output.destination == 'needs_review' || $json.output.confidence < 0.6 }}",
+                    "rightValue": "true",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Needs Review"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        608,
+        -48
+      ],
+      "id": "b36bf247-4da1-4800-88d8-9fe6bc99c34c",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "{{NOTION_IDEAS_DB_ID}}",
+          "mode": "list",
+          "cachedResultName": "Ideas",
+          "cachedResultUrl": "{{NOTION_IDEAS_URL}}"
+        },
+        "simple": false,
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Name|title",
+              "title": "={{ $json.output.data.name || \"Untitled\" }}"
+            },
+            {
+              "key": "One-liner|rich_text",
+              "textContent": "={{ $json.output.data.one_liner }}"
+            },
+            {
+              "key": "Notes|rich_text",
+              "textContent": "={{ $json.output.data.notes }}"
+            },
+            {
+              "key": "Last Touched|date",
+              "date": "={{ $now }}"
+            },
+            {
+              "key": "Tags|multi_select",
+              "multiSelectValue": "={{ $json.output.data.tags }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        832,
+        144
+      ],
+      "id": "d17fdda0-fd95-41ce-af5e-13ea36cae3b4",
+      "name": "Update Ideas",
+      "credentials": {
+        "notionApi": {
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "{{NOTION_PEOPLE_DB_ID}}",
+          "mode": "list",
+          "cachedResultName": "People",
+          "cachedResultUrl": "{{NOTION_PEOPLE_URL}}"
+        },
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Name|title",
+              "title": "={{ $json.output.data.name || \"Unknown\" }}"
+            },
+            {
+              "key": "Context|rich_text",
+              "textContent": "={{ $json.output.data.context || \"\"}}"
+            },
+            {
+              "key": "Follow-ups|rich_text",
+              "textContent": "={{ $json.output.data.follow_ups || \"\" }}"
+            },
+            {
+              "key": "Last Touched|date",
+              "date": "={{ $now }}"
+            },
+            {
+              "key": "Tags|multi_select",
+              "multiSelectValue": "={{ $json.output.data.tags || []}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        832,
+        -240
+      ],
+      "id": "a4a38da3-092e-418a-bdef-a79e9de82183",
+      "name": "Create Person",
+      "credentials": {
+        "notionApi": {
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "{{NOTION_PROJECTS_DB_ID}}",
+          "mode": "list",
+          "cachedResultName": "Projects",
+          "cachedResultUrl": "{{NOTION_PROJECTS_URL}}"
+        },
+        "simple": false,
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Name|title",
+              "title": "={{ $json.output.data.name || \"Unknown\" }}"
+            },
+            {
+              "key": "Status|status",
+              "statusValue": "={{ $json.output.data.status || \"Not started\" }}"
+            },
+            {
+              "key": "Next Action|rich_text",
+              "textContent": "={{ $json.output.data.next_action }}"
+            },
+            {
+              "key": "Notes|rich_text",
+              "textContent": "={{ $json.output.data.notes }}"
+            },
+            {
+              "key": "Last Touched|date",
+              "date": "={{ $now }}"
+            },
+            {
+              "key": "Tags|multi_select",
+              "multiSelectValue": "={{ $json.output.data.tags }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        832,
+        -48
+      ],
+      "id": "468c324f-b2bf-4e19-bae8-753335869689",
+      "name": "Create Projects",
+      "credentials": {
+        "notionApi": {
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "{{NOTION_ADMIN_DB_ID}}",
+          "mode": "list",
+          "cachedResultName": "Admin",
+          "cachedResultUrl": "{{NOTION_ADMIN_URL}}"
+        },
+        "simple": false,
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Name|title",
+              "title": "={{ $json.output.data.name || \"Unknown\" }}"
+            },
+            {
+              "key": "Due Date|date",
+              "date": "={{ $json.output.data.due_date.toDateTime() }}"
+            },
+            {
+              "key": "Status|status",
+              "statusValue": "={{ $json.output.data.status || \"To do\" }}"
+            },
+            {
+              "key": "Notes|rich_text",
+              "textContent": "={{ $json.output.data.notes }}"
+            },
+            {
+              "key": "Created|date",
+              "date": "={{ $now }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        832,
+        528
+      ],
+      "id": "19c442f3-6050-4c01-8c06-a2f44348f06d",
+      "name": "Create Admin",
+      "credentials": {
+        "notionApi": {
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "{{NOTION_INBOX_LOG_DB_ID}}",
+          "mode": "list",
+          "cachedResultName": "Inbox Log",
+          "cachedResultUrl": "{{NOTION_INBOX_LOG_URL}}"
+        },
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Original Text|title",
+              "title": "={{ $('Slack Trigger').item.json.text }}"
+            },
+            {
+              "key": "Filed To|select",
+              "selectValue": "={{ $('AI Agent').item.json.output.destination.toTitleCase() }}"
+            },
+            {
+              "key": "Destination URL |url",
+              "urlValue": "={{ $json.url }}"
+            },
+            {
+              "key": "Confidence|number",
+              "numberValue": "={{ $('AI Agent').item.json.output.confidence }}"
+            },
+            {
+              "key": "Status|status",
+              "statusValue": "Filed"
+            },
+            {
+              "key": "Created|date",
+              "date": "={{ $now }}"
+            },
+            {
+              "key": "Slack Thread TS|rich_text",
+              "textContent": "={{ $('Slack Trigger').item.json.ts }}"
+            },
+            {
+              "key": "Notion Record ID|rich_text",
+              "textContent": "={{ $json.id }}"
+            },
+            {
+              "key": "Destination Name|rich_text",
+              "textContent": "={{ $('AI Agent').item.json.output.destination.toTitleCase() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        1056,
+        48
+      ],
+      "id": "42c55bce-178d-49da-af24-2260e9bab532",
+      "name": "Create Inbox Log Entry",
+      "credentials": {
+        "notionApi": {
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "{{YOUR_SLACK_CHANNEL_ID}}",
+          "mode": "list",
+          "cachedResultName": "{{YOUR_CHANNEL_NAME}}"
+        },
+        "text": "=\ud83e\udd14 I'm not sure how to classify this \u2192 (Confidence: {{ $json.property_confidence }})\n\nCould you repost with a prefix?\n- \"person: ...\" for people\n- \"project: ...\" for projects\n- \"idea: ...\" for ideas\n- \"admin: ...\" for tasks/errands\n\nOr reply \"fix: [category]\" to classify this one.",
+        "otherOptions": {
+          "thread_ts": {
+            "replyValues": {
+              "thread_ts": "={{ $json.property_slack_thread_ts }}",
+              "reply_broadcast": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        1056,
+        336
+      ],
+      "id": "90276d9c-78e2-4b09-beda-50f73f572f8a",
+      "name": "Reply: More Context",
+      "credentials": {
+        "slackApi": {
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "{{YOUR_SLACK_CHANNEL_ID}}",
+          "mode": "list",
+          "cachedResultName": "{{YOUR_CHANNEL_NAME}}"
+        },
+        "text": "=\u2705 Filed as {{ $json.property_destination_name }}\n\n**{{ $('AI Agent').item.json.output.data.name }}**\nConfidence: {{ $json.property_confidence }}\n",
+        "otherOptions": {
+          "thread_ts": {
+            "replyValues": {
+              "thread_ts": "={{ $json.property_slack_thread_ts }}",
+              "reply_broadcast": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        1344,
+        48
+      ],
+      "id": "e7c4195f-1a96-4c17-bd61-6ab32b324be8",
+      "name": "Reply: Success",
+      "credentials": {
+        "slackApi": {
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const message = $input.first().json.text.toLowerCase();\nconst threadTs = $input.first().json.thread_ts;\n\n// Extract the correction after \"fix:\"\nconst fixMatch = message.match(/fix:\\s*(.+)/i);\nif (!fixMatch) {\n  return { error: 'Could not parse fix command', valid: false };\n}\n\nconst correction = fixMatch[1].trim();\n\n// Determine the new destination\nlet newDestination = null;\nconst destinations = {\n  'people': ['people', 'person'],\n  'projects': ['projects', 'project'],\n  'ideas': ['ideas', 'idea'],\n  'admin': ['admin', 'task', 'errand']\n};\n\nfor (const [dest, keywords] of Object.entries(destinations)) {\n  for (const keyword of keywords) {\n    if (correction.includes(keyword)) {\n      newDestination = dest;\n      break;\n    }\n  }\n  if (newDestination) break;\n}\n\nreturn {\n  valid: newDestination !== null,\n  new_destination: newDestination,\n  correction_text: correction,\n  thread_ts: threadTs\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        608,
+        768
+      ],
+      "id": "fd9d525c-7448-442c-b7fa-23c150894800",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "1513f481-3576-41e0-ae81-df4be8c14487",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        832,
+        768
+      ],
+      "id": "c0bf58ae-0765-4315-a9a4-8c1b15d0cca0",
+      "name": "If Valid"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d95f178a-fc80-45c9-8b76-b8a195ab8895",
+              "leftValue": "={{ $json.text }}",
+              "rightValue": "fix",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        320,
+        864
+      ],
+      "id": "52c68abb-7594-4147-af08-b7bee46a420c",
+      "name": "If \"Fix\""
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "12fe3eb5-4c91-458f-be8b-7f63b03e4680",
+              "leftValue": "={{ $json.thread_ts }}",
+              "rightValue": "=",
+              "operator": {
+                "type": "string",
+                "operation": "notExists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        32,
+        576
+      ],
+      "id": "d72e062f-1634-4734-92cb-ca9d582716f7",
+      "name": "If Not Thread Reply"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": {
+          "__rl": true,
+          "value": "{{NOTION_INBOX_LOG_DB_ID}}",
+          "mode": "list",
+          "cachedResultName": "Inbox Log",
+          "cachedResultUrl": "{{NOTION_INBOX_LOG_URL}}"
+        },
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "key": "Slack Thread TS|rich_text",
+              "condition": "equals",
+              "richTextValue": "={{ $json.thread_ts }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        1056,
+        672
+      ],
+      "id": "bee83f06-ab1d-4606-a571-c3038d8fa82d",
+      "name": "Get many database pages",
+      "credentials": {
+        "notionApi": {
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "{{NOTION_INBOX_LOG_DB_ID}}",
+          "mode": "list",
+          "cachedResultName": "Inbox Log",
+          "cachedResultUrl": "{{NOTION_INBOX_LOG_URL}}"
+        },
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Original Text|title",
+              "title": "={{ $('Slack Trigger').item.json.text }}"
+            },
+            {
+              "key": "Created|date",
+              "date": "={{ $now }}"
+            },
+            {
+              "key": "Status|status",
+              "statusValue": "Needs Review"
+            },
+            {
+              "key": "Slack Thread TS|rich_text",
+              "textContent": "={{ $('Slack Trigger').item.json.ts }}"
+            },
+            {
+              "key": "Confidence|number",
+              "numberValue": "={{ $json.output.confidence }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        832,
+        336
+      ],
+      "id": "eac7b069-e818-4ae6-819e-5fc80c7712c8",
+      "name": "Inbox: Needs Review",
+      "credentials": {
+        "notionApi": {
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{\"Input: \" + $json.name }}\n---\n{{ \"Forced Category: \" + $('If Valid').item.json.new_destination.toSentenceCase() }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=## ROLE\nYou are a forced classification system for a personal knowledge management system. Your job is to analyze the user's captured thought and return structured JSON.\n\n\n## INSTRUCTIONS:\n1. Category is forced by user in prompt\n\n2. Extract the relevant fields based on category\n\n3. Confidence score is 1.0 as category forced by user\n\nOUTPUT FORMAT (return ONLY this JSON, no other text). You'll be given a generic Output Format, but use the below rules as examples:\n\nFor PEOPLE:\n{\n  \"destination\": \"people\",\n  \"confidence\": 0.85,\n  \"data\": {\n    \"name\": \"Person's Name\",\n    \"context\": \"How you know them or their role\",\n    \"follow_ups\": \"Things to remember for next time\",\n    \"tags\": [\"work\", \"friend\"]\n  }\n}\n\nFor PROJECTS:\n{\n  \"destination\": \"projects\",\n  \"confidence\": 0.85,\n  \"data\": {\n    \"name\": \"Project Name\",\n    \"status\": \"active\",\n    \"next_action\": \"Specific next action to take\",\n    \"notes\": \"Additional context\",\n    \"tags\": [\"work\"]\n  }\n}\n\nFor IDEAS:\n{\n  \"destination\": \"ideas\",\n  \"confidence\": 0.85,\n  \"data\": {\n    \"name\": \"Idea Title\",\n    \"one_liner\": \"Core insight in one sentence\",\n    \"notes\": \"Elaboration if provided\",\n    \"tags\": [\"product\"]\n  }\n}\n\nFor ADMIN:\n{\n  \"destination\": \"admin\",\n  \"confidence\": 0.85,\n  \"data\": {\n    \"name\": \"Task name\",\n    \"due_date\": \"2024-01-15 or null if not specified\",\n    \"notes\": \"Additional context\"\n  }\n}\n\n\n\n## RULES:\n- \"next_action\" must be specific and executable. \"Work on website\" is bad. \"Email Sarah to confirm deadline\" is good.\n- If a person's name is mentioned, consider if this is really about that person or about a project/task involving them\n- Status options for projects: \"active\", \"waiting\", \"blocked\", \"someday\"\n- Extract dates when mentioned and format as YYYY-MM-DD\n- If no clear tags apply, use an empty array []\n- Always return valid JSON with no markdown formatting\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1280,
+        672
+      ],
+      "id": "b2d2c06e-051d-4824-9559-a729d1388eb9",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"required\": [\"destination\", \"confidence\", \"data\"],\n  \"properties\": {\n    \"destination\": {\n      \"type\": \"string\",\n      \"enum\": [\"people\", \"projects\", \"ideas\", \"admin\", \"needs_review\"]\n    },\n    \"confidence\": {\n      \"type\": \"number\"\n    },\n    \"data\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"name\": { \"type\": \"string\" },\n        \"context\": { \"type\": \"string\" },\n        \"follow_ups\": { \"type\": \"string\" },\n        \"tags\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n        \"status\": { \"type\": \"string\", \"enum\":[\"Not started\", \"In progress\", \"Done\"] },\n        \"next_action\": { \"type\": \"string\" },\n        \"notes\": { \"type\": \"string\" },\n        \"one_liner\": { \"type\": \"string\" },\n        \"due_date\": { \"type\": \"string\" },\n        \"original_text\": { \"type\": \"string\" },\n        \"possible_categories\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n        \"reason\": { \"type\": \"string\" }\n      }\n    }\n  }\n}\n"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1424,
+        896
+      ],
+      "id": "e8136308-877c-4a6f-8a5f-220830b34206",
+      "name": "Structured Output Parser1"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "gpt-4o"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1296,
+        896
+      ],
+      "id": "f22a1af6-a4b3-4a23-8e73-9ee8896fed9f",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output.destination == 'people' }}",
+                    "rightValue": "true",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    },
+                    "id": "b0032c64-d804-41cc-abf5-ebf70ed2a938"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "People"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "0f7a096f-7c4c-4dfd-b1df-11c8c32f3f08",
+                    "leftValue": "={{ $json.output.destination == 'projects' }}",
+                    "rightValue": "true",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Projects"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "0d9e1ef9-6092-4a77-a423-c4bb2e52cccf",
+                    "leftValue": "={{ $json.output.destination == 'ideas' }}",
+                    "rightValue": "true",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Ideas"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "ab2a0ae0-6fad-4b0d-9383-88599b41805a",
+                    "leftValue": "={{ $json.output.destination == 'admin' }}",
+                    "rightValue": "true",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Admin"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1632,
+        640
+      ],
+      "id": "563dca00-0b60-420c-a022-c708e70a1c4d",
+      "name": "Switch1"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "{{NOTION_IDEAS_DB_ID}}",
+          "mode": "list",
+          "cachedResultName": "Ideas",
+          "cachedResultUrl": "{{NOTION_IDEAS_URL}}"
+        },
+        "simple": false,
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Name|title",
+              "title": "={{ $json.output.data.name || \"Untitled\" }}"
+            },
+            {
+              "key": "One-liner|rich_text",
+              "textContent": "={{ $json.output.data.one_liner }}"
+            },
+            {
+              "key": "Notes|rich_text",
+              "textContent": "={{ $json.output.data.notes }}"
+            },
+            {
+              "key": "Last Touched|date",
+              "date": "={{ $now }}"
+            },
+            {
+              "key": "Tags|multi_select",
+              "multiSelectValue": "={{ $json.output.data.tags }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        1856,
+        768
+      ],
+      "id": "052541c1-b6b6-4721-bd64-4e11417b025f",
+      "name": "Update Ideas1",
+      "credentials": {
+        "notionApi": {
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "{{NOTION_PROJECTS_DB_ID}}",
+          "mode": "list",
+          "cachedResultName": "Projects",
+          "cachedResultUrl": "{{NOTION_PROJECTS_URL}}"
+        },
+        "simple": false,
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Name|title",
+              "title": "={{ $json.output.data.name || \"Unknown\" }}"
+            },
+            {
+              "key": "Status|status",
+              "statusValue": "={{ $json.output.data.status || \"Not started\" }}"
+            },
+            {
+              "key": "Next Action|rich_text",
+              "textContent": "={{ $json.output.data.next_action }}"
+            },
+            {
+              "key": "Notes|rich_text",
+              "textContent": "={{ $json.output.data.notes }}"
+            },
+            {
+              "key": "Last Touched|date",
+              "date": "={{ $now }}"
+            },
+            {
+              "key": "Tags|multi_select",
+              "multiSelectValue": "={{ $json.output.data.tags }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        1856,
+        576
+      ],
+      "id": "64867214-f3cc-4fed-b832-3cb2e0fa262f",
+      "name": "Create Projects1",
+      "credentials": {
+        "notionApi": {
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "{{NOTION_ADMIN_DB_ID}}",
+          "mode": "list",
+          "cachedResultName": "Admin",
+          "cachedResultUrl": "{{NOTION_ADMIN_URL}}"
+        },
+        "simple": false,
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Name|title",
+              "title": "={{ $json.output.data.name || \"Unknown\" }}"
+            },
+            {
+              "key": "Due Date|date",
+              "date": "={{ $json.output.data.due_date.toDateTime() }}"
+            },
+            {
+              "key": "Status|status",
+              "statusValue": "={{ $json.output.data.status || \"To do\" }}"
+            },
+            {
+              "key": "Notes|rich_text",
+              "textContent": "={{ $json.output.data.notes }}"
+            },
+            {
+              "key": "Created|date",
+              "date": "={{ $now }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        1856,
+        960
+      ],
+      "id": "20856090-948c-41cf-ba34-a6cb46555bfd",
+      "name": "Create Admin1",
+      "credentials": {
+        "notionApi": {
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "{{NOTION_PEOPLE_DB_ID}}",
+          "mode": "list",
+          "cachedResultName": "People",
+          "cachedResultUrl": "{{NOTION_PEOPLE_URL}}"
+        },
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Name|title",
+              "title": "={{ $json.output.data.name || \"Unknown\" }}"
+            },
+            {
+              "key": "Context|rich_text",
+              "textContent": "={{ $json.output.data.context || \"\"}}"
+            },
+            {
+              "key": "Follow-ups|rich_text",
+              "textContent": "={{ $json.output.data.follow_ups || \"\" }}"
+            },
+            {
+              "key": "Last Touched|date",
+              "date": "={{ $now }}"
+            },
+            {
+              "key": "Tags|multi_select",
+              "multiSelectValue": "={{ $json.output.data.tags || []}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        1856,
+        384
+      ],
+      "id": "da5821a2-2275-42fd-82f6-5fa6e6725b2c",
+      "name": "Create Person1",
+      "credentials": {
+        "notionApi": {
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "update",
+        "pageId": {
+          "__rl": true,
+          "value": "={{ $('Get many database pages').item.json.id }}",
+          "mode": "id"
+        },
+        "simple": false,
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Filed To|select",
+              "selectValue": "={{ $('Switch1').item.json.output.destination.toTitleCase() }}"
+            },
+            {
+              "key": "Destination Name|rich_text",
+              "textContent": "={{ $json.properties.Name.title[0].text.content }}"
+            },
+            {
+              "key": "Destination URL |url",
+              "urlValue": "={{ $json.url }}"
+            },
+            {
+              "key": "Status|status",
+              "statusValue": "Fixed"
+            },
+            {
+              "key": "Confidence|number",
+              "numberValue": 1
+            },
+            {
+              "key": "Notion Record ID|rich_text",
+              "textContent": "={{ $json.id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        2080,
+        672
+      ],
+      "id": "449f6326-6716-41d3-9836-6e85bc7b65d4",
+      "name": "Update Inbox Log",
+      "credentials": {
+        "notionApi": {
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "{{YOUR_SLACK_CHANNEL_ID}}",
+          "mode": "list",
+          "cachedResultName": "{{YOUR_CHANNEL_NAME}}"
+        },
+        "text": "=\u2705 Updated and filed as {{ $json.properties['Filed To'].select.name }}\n\n**{{ $json.properties['Destination Name'].rich_text[0].text.content }}**\n\n",
+        "otherOptions": {
+          "thread_ts": {
+            "replyValues": {
+              "thread_ts": "={{ $json.properties['Slack Thread TS'].rich_text[0].plain_text }}",
+              "reply_broadcast": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        2304,
+        672
+      ],
+      "id": "eba22041-1278-4363-abcd-add780367c95",
+      "name": "Reply: Update Successful",
+      "credentials": {
+        "slackApi": {
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "{{YOUR_SLACK_CHANNEL_ID}}",
+          "mode": "list",
+          "cachedResultName": "{{YOUR_CHANNEL_NAME}}"
+        },
+        "text": "=\ud83e\udd2f Sorry I can't help here - you need to reply with:\n\n\"fix: [category]\" to classify this one.\n\nCould you repost with a prefix?\n- \"person: ...\" for people\n- \"project: ...\" for projects\n- \"idea: ...\" for ideas\n- \"admin: ...\" for tasks/errands",
+        "otherOptions": {
+          "thread_ts": {
+            "replyValues": {
+              "thread_ts": "={{ $('If Not Thread Reply').item.json.thread_ts }}",
+              "reply_broadcast": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        608,
+        960
+      ],
+      "id": "3f36ee9f-b8fd-42d0-8455-785068376767",
+      "name": "Reply: Incorrect Command",
+      "credentials": {
+        "slackApi": {
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "{{YOUR_SLACK_CHANNEL_ID}}",
+          "mode": "list",
+          "cachedResultName": "{{YOUR_CHANNEL_NAME}}"
+        },
+        "text": "=\ud83e\udd2f Sorry, {{ $('Code in JavaScript').item.json.new_destination }} isn't a category - you need to reply with an existing category:\n\n\"fix: [category]\" to classify this one.\n\nCould you repost with a prefix?\n- \"person: ...\" for people\n- \"project: ...\" for projects\n- \"idea: ...\" for ideas\n- \"admin: ...\" for tasks/errands",
+        "otherOptions": {
+          "thread_ts": {
+            "replyValues": {
+              "thread_ts": "={{ $('If Not Thread Reply').item.json.thread_ts }}",
+              "reply_broadcast": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        1056,
+        864
+      ],
+      "id": "61db513d-14e1-4138-99e7-9196bbb374ae",
+      "name": "Reply: Category doesn't Exist",
+      "credentials": {
+        "slackApi": {
+          "name": "Slack account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Slack Trigger": {
+      "main": [
+        [
+          {
+            "node": "If Not Thread Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Create Person",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Projects",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Ideas",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Admin",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Inbox: Needs Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Ideas": {
+      "main": [
+        [
+          {
+            "node": "Create Inbox Log Entry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Projects": {
+      "main": [
+        [
+          {
+            "node": "Create Inbox Log Entry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Person": {
+      "main": [
+        [
+          {
+            "node": "Create Inbox Log Entry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Admin": {
+      "main": [
+        [
+          {
+            "node": "Create Inbox Log Entry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Inbox Log Entry": {
+      "main": [
+        [
+          {
+            "node": "Reply: Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "If Valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If \"Fix\"": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply: Incorrect Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Not Thread Reply": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If \"Fix\"",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Valid": {
+      "main": [
+        [
+          {
+            "node": "Get many database pages",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply: Category doesn't Exist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inbox: Needs Review": {
+      "main": [
+        [
+          {
+            "node": "Reply: More Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser1": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many database pages": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch1": {
+      "main": [
+        [
+          {
+            "node": "Create Person1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Projects1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Ideas1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Admin1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Ideas1": {
+      "main": [
+        [
+          {
+            "node": "Update Inbox Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Projects1": {
+      "main": [
+        [
+          {
+            "node": "Update Inbox Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Admin1": {
+      "main": [
+        [
+          {
+            "node": "Update Inbox Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Person1": {
+      "main": [
+        [
+          {
+            "node": "Update Inbox Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Inbox Log": {
+      "main": [
+        [
+          {
+            "node": "Reply: Update Successful",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

@@ -1,0 +1,345 @@
+{
+  "name": "Daily Digest (Template)",
+  "nodes": [
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": {
+          "__rl": true,
+          "value": "{{NOTION_PROJECTS_DB_ID}}",
+          "mode": "list",
+          "cachedResultName": "Projects",
+          "cachedResultUrl": "{{NOTION_PROJECTS_URL}}"
+        },
+        "limit": 20,
+        "filterType": "manual",
+        "filters": {
+          "conditions": [
+            {
+              "key": "Status|status",
+              "condition": "equals",
+              "statusValue": "In progress"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        -288,
+        -16
+      ],
+      "id": "554dd03a-3279-4ff4-b219-23882879b53d",
+      "name": "Get Active Projects",
+      "credentials": {
+        "notionApi": {
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": {
+          "__rl": true,
+          "value": "{{NOTION_ADMIN_DB_ID}}",
+          "mode": "list",
+          "cachedResultName": "Admin",
+          "cachedResultUrl": "{{NOTION_ADMIN_URL}}"
+        },
+        "limit": 10,
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "key": "Status|status",
+              "condition": "equals",
+              "statusValue": "To Do"
+            },
+            {
+              "key": "Due Date|date",
+              "condition": "on_or_before",
+              "date": "={{ $now }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        -288,
+        368
+      ],
+      "id": "10542497-154a-404e-a94a-23cf00c24545",
+      "name": "Get Admin Tasks",
+      "credentials": {
+        "notionApi": {
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": {
+          "__rl": true,
+          "value": "{{NOTION_PEOPLE_DB_ID}}",
+          "mode": "list",
+          "cachedResultName": "People",
+          "cachedResultUrl": "{{NOTION_PEOPLE_URL}}"
+        },
+        "limit": 10,
+        "filterType": "manual",
+        "filters": {
+          "conditions": [
+            {
+              "key": "Follow-ups|rich_text",
+              "condition": "is_not_empty"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        -288,
+        176
+      ],
+      "id": "c67b1670-69b9-4b67-8b3a-2fa4abd3e6f7",
+      "name": "Get People Follow Ups",
+      "credentials": {
+        "notionApi": {
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        32,
+        160
+      ],
+      "id": "e6412032-9e39-4b13-ba29-c86f70f97c1a",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all().map(item => item.json);\n\n// Categorize by checking for type-specific properties\nconst projects = items.filter(item => item.property_next_action !== undefined);\nconst people = items.filter(item => item.property_follow_ups !== undefined);\nconst admin = items.filter(item => item.property_due_date !== undefined);\n\nlet context = \"ACTIVE PROJECTS:\\n\";\nprojects.forEach((p, i) => {\n  context += `${i + 1}. ${p.name || p.property_name || 'Untitled'}\\n`;\n  context += `   Status: ${p.property_status || 'Unknown'}\\n`;\n  context += `   Next Action: ${p.property_next_action || 'None specified'}\\n\\n`;\n});\n\ncontext += \"\\nPEOPLE TO FOLLOW UP WITH:\\n\";\npeople.forEach((p, i) => {\n  context += `${i + 1}. ${p.name || p.property_name || 'Unknown'}\\n`;\n  context += `   Follow-up: ${p.property_follow_ups || 'None'}\\n\\n`;\n});\n\ncontext += \"\\nTASKS DUE:\\n\";\nadmin.forEach((a, i) => {\n  const dueDate = a.property_due_date?.start \n    ? new Date(a.property_due_date.start).toLocaleDateString() \n    : 'No date';\n  context += `${i + 1}. ${a.name || a.property_name || 'Untitled'}\\n`;\n  context += `   Due: ${dueDate}\\n`;\n  context += `   Notes: ${a.property_notes || 'None'}\\n\\n`;\n});\n\nreturn { context };\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        176
+      ],
+      "id": "11d3c61e-385a-4f68-85c4-cdc54bf46895",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.context }}",
+        "options": {
+          "systemMessage": "=You are a personal productivity assistant. Generate a concise daily digest of the <user> inout.\n\nTODAY'S DATE: {{ $now }}\n\nINSTRUCTIONS:\nCreate a digest with this format. Keep it under 150 words total.\n\n---\n\n☀️ *Good morning!*\n\n*🎯 Top Actions Today:* \n1. [Most important/urgent action from projects or admin]\n2. [Second priority]\n3. [Third priority]\n\n*👥 People to Connect With:*\n- [Person name]: [Brief follow-up reminder]\n\n*⚠️ Watch Out For:*\n[One thing that might be stuck, overdue, or getting neglected]\n\n*💪 One Small Win to Notice:*\n[Something positive or progress made, or encouraging thought]\n\n---\n\nRULES:\n- Be specific and actionable, not motivational\n- Only list a maximum of three priority actions\n- Prioritize overdue items and concrete next actions\n- If there's nothing in a section, omit it entirely\n- Keep language direct and practical\n- Don't add explanations or commentary outside the format\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        448,
+        176
+      ],
+      "id": "7f625d50-3c1e-4c80-8fd1-9efd7bab24a8",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "gpt-4o"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        320,
+        384
+      ],
+      "id": "3ccf4c22-70aa-465a-9f6b-0a060f7fd54f",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "user",
+        "user": {
+          "__rl": true,
+          "value": "{{YOUR_SLACK_USER_ID}}",
+          "mode": "list",
+          "cachedResultName": "{{YOUR_SLACK_USERNAME}}"
+        },
+        "text": "={{ $json.output }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        800,
+        176
+      ],
+      "id": "cecdeaff-69c0-4ae1-9510-95b7e4269e48",
+      "name": "Send a message",
+      "credentials": {
+        "slackApi": {
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -592,
+        176
+      ],
+      "id": "9d677d03-fa1a-46d6-b97e-62d764d9e8d5",
+      "name": "Schedule Trigger"
+    }
+  ],
+  "connections": {
+    "Get Active Projects": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Admin Tasks": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Get People Follow Ups": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Active Projects",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get People Follow Ups",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Admin Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

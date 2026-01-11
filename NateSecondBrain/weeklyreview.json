@@ -1,0 +1,283 @@
+{
+  "name": "Weekly Review (Template)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtHour": 16
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -336,
+        32
+      ],
+      "id": "d32db4c1-f9dd-47d3-bedd-d5a2c7f68e68",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": {
+          "__rl": true,
+          "value": "{{NOTION_INBOX_LOG_DB_ID}}",
+          "mode": "list",
+          "cachedResultName": "Inbox Log",
+          "cachedResultUrl": "{{NOTION_INBOX_LOG_URL}}"
+        },
+        "filterType": "manual",
+        "filters": {
+          "conditions": [
+            {
+              "key": "Created|date",
+              "condition": "past_week"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        -16,
+        32
+      ],
+      "id": "2b4552fa-5318-42aa-8ea4-fd86cc297b09",
+      "name": "Get Weekly Inbox",
+      "credentials": {
+        "notionApi": {
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": {
+          "__rl": true,
+          "value": "{{NOTION_PROJECTS_DB_ID}}",
+          "mode": "list",
+          "cachedResultName": "Projects",
+          "cachedResultUrl": "{{NOTION_PROJECTS_URL}}"
+        },
+        "limit": 30,
+        "filterType": "manual",
+        "filters": {
+          "conditions": [
+            {
+              "key": "Status|status",
+              "condition": "equals",
+              "statusValue": "In progress"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        -16,
+        256
+      ],
+      "id": "10f22c30-8f18-47e0-be5d-74a2a883e168",
+      "name": "Get All Active Projects",
+      "credentials": {
+        "notionApi": {
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        272,
+        48
+      ],
+      "id": "f20e8350-a4b0-4577-80a1-d5d4ad22c99a",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.context }}",
+        "options": {
+          "systemMessage": "=You are a personal productivity assistant conducting a weekly review. Analyze the data provided by the user\n\nTOTAL CAPTURES THIS WEEK: {{ $json.stats.toJsonString() }}\n\nINSTRUCTIONS:\nCreate a weekly review with EXACTLY this format. Keep it under 250 words total.\n\n---\n\n📅 *Week in Review*\n\n*📊 Quick Stats:*\n- Items captured: [number]\n- Breakdown: [x people, y projects, z ideas, w admin]\n\n*🎯 What Moved Forward:*\n- [Project or area that made progress]\n- [Another win or completion]\n\n*🔴 Open Loops (needs attention):*\n1. [Something blocked, stalled, or waiting too long]\n2. [Another concern]\n\n*💡 Patterns I Notice:*\n[One observation about themes, recurring topics, or where energy is going]\n\n*📌 Suggested Focus for Next Week:*\n1. [Specific action for highest priority item]\n2. [Second priority]\n3. [Third priority]\n\n*🔧 Items Needing Review:*\n[List any items still marked \"Needs Review\" or flag if none]\n\n---\n\nRULES:\n- Be analytical, not motivational\n- Call out projects that haven't had action in over a week\n- Note if capture volume was unusually high or low\n- Suggest concrete next actions, not vague intentions\n- If something looks stuck, say so directly\n- Keep language concise and actionable\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        704,
+        48
+      ],
+      "id": "638d8d71-eeb0-402e-bd41-0acb92666a64",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all().map(item => item.json);\n\n// Categorize items by their source\n// Inbox items have property_filed_to\nconst inboxLog = items.filter(item => item.property_filed_to !== undefined);\n\n// Projects have property_next_action but no property_filed_to\nconst projects = items.filter(item => \n  item.property_next_action !== undefined && \n  item.property_filed_to === undefined\n);\n\n// People have property_follow_ups\nconst people = items.filter(item => \n  item.property_follow_ups !== undefined &&\n  item.property_filed_to === undefined\n);\n\n// Ideas have property_one_liner (adjust if your field name differs)\nconst ideas = items.filter(item => \n  item.property_one_liner !== undefined &&\n  item.property_filed_to === undefined\n);\n\n// Admin have property_due_date\nconst admin = items.filter(item => \n  item.property_due_date !== undefined &&\n  item.property_filed_to === undefined\n);\n\n// === BUILD CONTEXT ===\nlet context = \"\";\n\n// --- WEEKLY CAPTURE SUMMARY ---\ncontext += \"=== 📥 ITEMS CAPTURED THIS WEEK ===\\n\\n\";\n\nif (inboxLog.length === 0) {\n  context += \"No items captured this week.\\n\\n\";\n} else {\n  inboxLog.forEach((item, i) => {\n    const originalText = item.property_original_text || item.name || 'No text';\n    const filedTo = item.property_filed_to || 'Unknown';\n    const destName = item.property_destination_name || '';\n    const status = item.property_status || '';\n    const confidence = item.property_confidence;\n\n    context += `${i + 1}. [${filedTo}] ${destName || originalText.substring(0, 50)}\\n`;\n    if (status === 'Needs Review' || status === 'Fixed') {\n      context += `   ⚠️ ${status.toUpperCase()}\\n`;\n    }\n    if (confidence && confidence < 0.7) {\n      context += `   🤔 Low confidence (${(confidence * 100).toFixed(0)}%)\\n`;\n    }\n    context += `\\n`;\n  });\n}\n\n// Category counts from inbox\nconst categoryCounts = {};\ninboxLog.forEach(item => {\n  const cat = item.property_filed_to || 'Unknown';\n  categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;\n});\n\n// --- ACTIVE PROJECTS ---\ncontext += \"=== 🎯 ACTIVE PROJECTS ===\\n\\n\";\n\nif (projects.length === 0) {\n  context += \"No active projects.\\n\\n\";\n} else {\n  projects.forEach((p, i) => {\n    const name = p.name || p.property_name || 'Untitled';\n    const status = p.property_status || 'Unknown';\n    const nextAction = p.property_next_action || 'None specified';\n    const notes = p.property_notes || '';\n    const tags = p.property_tags?.join(', ') || '';\n    const lastTouched = p.property_last_touched?.start \n      ? new Date(p.property_last_touched.start).toLocaleDateString()\n      : 'Unknown';\n\n    context += `${i + 1}. ${name}\\n`;\n    context += `   Status: ${status}\\n`;\n    context += `   Next Action: ${nextAction}\\n`;\n    context += `   Last Touched: ${lastTouched}\\n`;\n    if (tags) context += `   Tags: ${tags}\\n`;\n    if (notes) context += `   Notes: ${notes.substring(0, 100)}${notes.length > 100 ? '...' : ''}\\n`;\n    context += `\\n`;\n  });\n}\n\n// --- PEOPLE TO FOLLOW UP WITH ---\ncontext += \"=== 👥 PEOPLE - PENDING FOLLOW-UPS ===\\n\\n\";\n\nif (people.length === 0) {\n  context += \"No pending follow-ups with people.\\n\\n\";\n} else {\n  people.forEach((p, i) => {\n    const name = p.name || p.property_name || 'Unknown';\n    const followUps = p.property_follow_ups || 'None';\n    const context_info = p.property_context || '';\n    const lastTouched = p.property_last_touched?.start\n      ? new Date(p.property_last_touched.start).toLocaleDateString()\n      : 'Unknown';\n\n    context += `${i + 1}. ${name}\\n`;\n    context += `   Follow-up: ${followUps}\\n`;\n    if (context_info) context += `   Context: ${context_info}\\n`;\n    context += `   Last Touched: ${lastTouched}\\n`;\n    context += `\\n`;\n  });\n}\n\n// --- IDEAS ---\ncontext += \"=== 💡 IDEAS ===\\n\\n\";\n\nif (ideas.length === 0) {\n  context += \"No recent ideas captured.\\n\\n\";\n} else {\n  ideas.forEach((idea, i) => {\n    const name = idea.name || idea.property_name || 'Untitled';\n    const oneLiner = idea.property_one_liner || '';\n    const notes = idea.property_notes || '';\n    const tags = idea.property_tags?.join(', ') || '';\n\n    context += `${i + 1}. ${name}\\n`;\n    if (oneLiner) context += `   Summary: ${oneLiner}\\n`;\n    if (tags) context += `   Tags: ${tags}\\n`;\n    if (notes) context += `   Notes: ${notes.substring(0, 100)}${notes.length > 100 ? '...' : ''}\\n`;\n    context += `\\n`;\n  });\n}\n\n// --- ADMIN TASKS ---\ncontext += \"=== ✅ ADMIN - PENDING TASKS ===\\n\\n\";\n\nconst now = new Date();\nif (admin.length === 0) {\n  context += \"No pending admin tasks.\\n\\n\";\n} else {\n  // Sort by due date\n  const sortedAdmin = [...admin].sort((a, b) => {\n    const dateA = a.property_due_date?.start ? new Date(a.property_due_date.start) : new Date('2099-12-31');\n    const dateB = b.property_due_date?.start ? new Date(b.property_due_date.start) : new Date('2099-12-31');\n    return dateA - dateB;\n  });\n\n  sortedAdmin.forEach((a, i) => {\n    const name = a.name || a.property_name || 'Untitled';\n    const notes = a.property_notes || '';\n    const status = a.property_status || 'Unknown';\n    const dueDate = a.property_due_date?.start \n      ? new Date(a.property_due_date.start)\n      : null;\n    \n    let dueDateStr = 'No due date';\n    let isOverdue = false;\n    if (dueDate) {\n      dueDateStr = dueDate.toLocaleDateString();\n      isOverdue = dueDate < now;\n    }\n\n    context += `${i + 1}. ${name}${isOverdue ? ' 🔴 OVERDUE' : ''}\\n`;\n    context += `   Due: ${dueDateStr}\\n`;\n    context += `   Status: ${status}\\n`;\n    if (notes) context += `   Notes: ${notes}\\n`;\n    context += `\\n`;\n  });\n}\n\n// --- SUMMARY STATS ---\ncontext += \"=== 📊 WEEKLY SUMMARY ===\\n\\n\";\ncontext += `Total items captured this week: ${inboxLog.length}\\n`;\ncontext += `Breakdown by category:\\n`;\nfor (const [cat, count] of Object.entries(categoryCounts)) {\n  context += `  - ${cat}: ${count}\\n`;\n}\ncontext += `\\n`;\ncontext += `Active projects: ${projects.length}\\n`;\ncontext += `People with pending follow-ups: ${people.length}\\n`;\ncontext += `Ideas in pipeline: ${ideas.length}\\n`;\ncontext += `Pending admin tasks: ${admin.length}\\n`;\n\n// Count overdue admin\nconst overdueCount = admin.filter(a => {\n  const due = a.property_due_date?.start ? new Date(a.property_due_date.start) : null;\n  return due && due < now;\n}).length;\n\nif (overdueCount > 0) {\n  context += `⚠️ OVERDUE TASKS: ${overdueCount}\\n`;\n}\n\nreturn { \n  context,\n  stats: {\n    total_captures: inboxLog.length,\n    active_projects: projects.length,\n    pending_followups: people.length,\n    ideas_count: ideas.length,\n    pending_admin: admin.length,\n    overdue_admin: overdueCount,\n    category_breakdown: categoryCounts\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        48
+      ],
+      "id": "492eb26c-2cb4-4571-819b-a54119ecd86d",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        608,
+        256
+      ],
+      "id": "68f24644-bf69-469e-85bb-3bbc13b920f6",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "user",
+        "user": {
+          "__rl": true,
+          "value": "{{YOUR_SLACK_USER_ID}}",
+          "mode": "list",
+          "cachedResultName": "{{YOUR_SLACK_USERNAME}}"
+        },
+        "text": "={{ $json.output }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        1056,
+        48
+      ],
+      "id": "f2140bde-2979-4149-b35c-2e0794b0ead1",
+      "name": "Send a message",
+      "credentials": {
+        "slackApi": {
+          "name": "Slack account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Weekly Inbox",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get All Active Projects",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Weekly Inbox": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Active Projects": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}
