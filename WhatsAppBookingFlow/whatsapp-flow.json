@@ -1,0 +1,305 @@
+{
+  "version": "6.0",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "SERVICE_SELECTION": ["DATE_TIME_SELECTION"],
+    "DATE_TIME_SELECTION": ["CONFIRMATION"],
+    "CONFIRMATION": []
+  },
+  "screens": [
+    {
+      "id": "SERVICE_SELECTION",
+      "title": "Book a Consultation",
+      "data": {
+        "consultation_types": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" }
+            }
+          },
+          "__example__": [
+            { "id": "30_min", "title": "30 Minute Call" },
+            { "id": "60_min", "title": "60 Minute Call" }
+          ]
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Personal Business Consultation"
+          },
+          {
+            "type": "TextBody",
+            "text": "Please select your consultation type and provide your details."
+          },
+          {
+            "type": "Form",
+            "name": "service_form",
+            "children": [
+              {
+                "type": "Dropdown",
+                "name": "consultation_type",
+                "label": "Type",
+                "required": true,
+                "data-source": "${data.consultation_types}"
+              },
+              {
+                "type": "TextInput",
+                "name": "customer_name",
+                "label": "Full Name",
+                "required": true,
+                "input-type": "text",
+                "helper-text": "Enter your full name"
+              },
+              {
+                "type": "TextInput",
+                "name": "customer_email",
+                "label": "Email",
+                "required": true,
+                "input-type": "email",
+                "helper-text": "We'll send a confirmation to this email"
+              }
+            ]
+          },
+          {
+            "type": "Footer",
+            "label": "Select Date & Time",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "consultation_type": "${form.consultation_type}",
+                "customer_name": "${form.customer_name}",
+                "customer_email": "${form.customer_email}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "DATE_TIME_SELECTION",
+      "title": "Select Date & Time",
+      "data": {
+        "customer_name": {
+          "type": "string",
+          "__example__": "John Doe"
+        },
+        "consultation_type": {
+          "type": "string",
+          "__example__": "30_min"
+        },
+        "consultation_type_label": {
+          "type": "string",
+          "__example__": "30 Minute Call"
+        },
+        "customer_email": {
+          "type": "string",
+          "__example__": "john@example.com"
+        },
+        "min_date": {
+          "type": "string",
+          "__example__": "2025-01-15"
+        },
+        "max_date": {
+          "type": "string",
+          "__example__": "2025-02-14"
+        },
+        "available_slots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" }
+            }
+          },
+          "__example__": [
+            { "id": "09:00", "title": "9:00 AM" },
+            { "id": "10:00", "title": "10:00 AM" },
+            { "id": "11:00", "title": "11:00 AM" },
+            { "id": "14:00", "title": "2:00 PM" },
+            { "id": "15:00", "title": "3:00 PM" }
+          ]
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Choose Your Appointment"
+          },
+          {
+            "type": "TextBody",
+            "text": "Select a date and available time slot for your consultation."
+          },
+          {
+            "type": "Form",
+            "name": "datetime_form",
+            "children": [
+              {
+                "type": "DatePicker",
+                "name": "appointment_date",
+                "label": "Date",
+                "required": true,
+                "min-date": "${data.min_date}",
+                "max-date": "${data.max_date}",
+                "helper-text": "Select a date within the next 30 days",
+                "on-select-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "selected_date": "${form.appointment_date}",
+                    "consultation_type": "${data.consultation_type}",
+                    "customer_name": "${data.customer_name}",
+                    "customer_email": "${data.customer_email}",
+                    "action_type": "refresh_slots"
+                  }
+                }
+              },
+              {
+                "type": "Dropdown",
+                "name": "appointment_time",
+                "label": "Time",
+                "required": true,
+                "data-source": "${data.available_slots}"
+              }
+            ]
+          },
+          {
+            "type": "Footer",
+            "label": "Review Booking",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "customer_name": "${data.customer_name}",
+                "customer_email": "${data.customer_email}",
+                "consultation_type": "${data.consultation_type}",
+                "consultation_type_label": "${data.consultation_type_label}",
+                "appointment_date": "${form.appointment_date}",
+                "appointment_time": "${form.appointment_time}",
+                "action_type": "confirm_booking"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "CONFIRMATION",
+      "title": "Confirm Booking",
+      "terminal": true,
+      "data": {
+        "customer_name": {
+          "type": "string",
+          "__example__": "John Doe"
+        },
+        "customer_email": {
+          "type": "string",
+          "__example__": "john@example.com"
+        },
+        "consultation_type": {
+          "type": "string",
+          "__example__": "30_min"
+        },
+        "consultation_type_label": {
+          "type": "string",
+          "__example__": "30 Minute Call"
+        },
+        "appointment_date": {
+          "type": "string",
+          "__example__": "2025-01-15"
+        },
+        "appointment_time": {
+          "type": "string",
+          "__example__": "10:00"
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Booking Summary"
+          },
+          {
+            "type": "TextSubheading",
+            "text": "Please review your booking details"
+          },
+          {
+            "type": "TextCaption",
+            "text": "Name"
+          },
+          {
+            "type": "TextBody",
+            "text": "${data.customer_name}"
+          },
+          {
+            "type": "TextCaption",
+            "text": "Consultation"
+          },
+          {
+            "type": "TextBody",
+            "text": "${data.consultation_type_label}"
+          },
+          {
+            "type": "TextCaption",
+            "text": "Date"
+          },
+          {
+            "type": "TextBody",
+            "text": "${data.appointment_date}"
+          },
+          {
+            "type": "TextCaption",
+            "text": "Time"
+          },
+          {
+            "type": "TextBody",
+            "text": "${data.appointment_time}"
+          },
+          {
+            "type": "Form",
+            "name": "confirmation_form",
+            "children": [
+              {
+                "type": "OptIn",
+                "name": "sms_reminder",
+                "label": "Send me SMS reminders",
+                "required": false
+              },
+              {
+                "type": "OptIn",
+                "name": "email_reminder",
+                "label": "Send me email reminders",
+                "required": false
+              }
+            ]
+          },
+          {
+            "type": "Footer",
+            "label": "Confirm Booking",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "customer_name": "${data.customer_name}",
+                "customer_email": "${data.customer_email}",
+                "consultation_type": "${data.consultation_type}",
+                "consultation_type_label": "${data.consultation_type_label}",
+                "appointment_date": "${data.appointment_date}",
+                "appointment_time": "${data.appointment_time}",
+                "sms_reminder": "${form.sms_reminder}",
+                "email_reminder": "${form.email_reminder}",
+                "action_type": "complete_booking"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
