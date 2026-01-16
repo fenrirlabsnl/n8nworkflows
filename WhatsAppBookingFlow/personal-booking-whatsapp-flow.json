@@ -668,7 +668,7 @@
       "credentials": {
         "airtableOAuth2Api": {
           "id": "{{AIRTABLE_OAUTH_CREDENTIAL_ID}}",
-          "name": "FenrirLabs Airtable"
+          "name": "[Your Company] Airtable"
         }
       },
       "onError": "continueRegularOutput",
@@ -704,7 +704,7 @@
       "credentials": {
         "airtableOAuth2Api": {
           "id": "{{AIRTABLE_OAUTH_CREDENTIAL_ID}}",
-          "name": "FenrirLabs Airtable"
+          "name": "[Your Company] Airtable"
         }
       },
       "notes": "NEW: Lookup service record by service_key (30_min or 60_min) to get record ID for linking"
@@ -877,7 +877,7 @@
       "credentials": {
         "airtableOAuth2Api": {
           "id": "{{AIRTABLE_OAUTH_CREDENTIAL_ID}}",
-          "name": "FenrirLabs Airtable"
+          "name": "[Your Company] Airtable"
         }
       },
       "notes": "UPDATED: customer_email (text), service_type (linked), event_date, event_time, booking_status, flow_token. Removed reminder fields."
@@ -1045,7 +1045,7 @@
       "credentials": {
         "airtableOAuth2Api": {
           "id": "{{AIRTABLE_OAUTH_CREDENTIAL_ID}}",
-          "name": "FenrirLabs Airtable"
+          "name": "[Your Company] Airtable"
         }
       },
       "notes": "UPDATED: status -> booking_status, now sets to 'Confirmed' after calendar event created"
@@ -1180,7 +1180,7 @@
       "credentials": {
         "airtableOAuth2Api": {
           "id": "{{AIRTABLE_OAUTH_CREDENTIAL_ID}}",
-          "name": "FenrirLabs Airtable"
+          "name": "[Your Company] Airtable"
         }
       },
       "notes": "UPDATED: Field names - customer_name, customer_email, customer_phone_number, date_created, last_interaction"
@@ -1225,7 +1225,7 @@
       "credentials": {
         "googleCalendarOAuth2Api": {
           "id": "{{GOOGLE_CALENDAR_CREDENTIAL_ID}}",
-          "name": "Fenrir Booking"
+          "name": "[Your Company] Calendar"
         }
       }
     },
@@ -1276,7 +1276,7 @@
         "promptType": "define",
         "text": "={{ $json.text }}",
         "options": {
-          "systemMessage": "=## Role & Goal\n\nYou are a helpful WhatsApp Assistant for Fenrir Labs, AI & Agentic Consulting for SMEs. Your goal is to respond to customers and determine the best response or WhatsApp template to serve them. \n\n## Task\n\nYou are given a text message from a user. You will then aim to understand how to help them. Based on their response, you will serve up a WhatsApp template or a message\n\n## Tools\n\nYou have access to the following tools:\n\n**whatsapp_consult_template**\nAction: Sends a whatsapp template that allows a user to book an appointment\nUsage: When the user's intent is to book a meeting\n\n**whatsapp_message**\nAction: Sends a text message back to the user\nUsage: When the user asks a questions, or you require more information to understand their intent\n\n## Examples\n- If a user messages \"Hello\", you respond with a greeting and asking how can Fenrir Labs help\n- If a user's intent is to book a consult, you will use the 'whatsapp_consult_template' too\n\n## Rules\n- MUST NOT do anything other than provide 'text' to the whatsapp_message tool. It should not be an object just pure text.\n\n"
+          "systemMessage": "=## Role & Goal\n\nYou are a helpful WhatsApp Assistant for [Your Company Name]. Your goal is to respond to customers and determine the best response or WhatsApp template to serve them. \n\n## Task\n\nYou are given a text message from a user. You will then aim to understand how to help them. Based on their response, you will serve up a WhatsApp template or a message\n\n## Tools\n\nYou have access to the following tools:\n\n**whatsapp_consult_template**\nAction: Sends a whatsapp template that allows a user to book an appointment\nUsage: When the user's intent is to book a meeting\n\n**whatsapp_message**\nAction: Sends a text message back to the user\nUsage: When the user asks a questions, or you require more information to understand their intent\n\n## Examples\n- If a user messages \"Hello\", you respond with a greeting and asking how can [Your Company Name] help\n- If a user's intent is to book a consult, you will use the 'whatsapp_consult_template' too\n\n## Rules\n- MUST NOT do anything other than provide 'text' to the whatsapp_message tool. It should not be an object just pure text.\n\n"
         }
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
@@ -1339,7 +1339,7 @@
       "credentials": {
         "googleCalendarOAuth2Api": {
           "id": "{{GOOGLE_CALENDAR_CREDENTIAL_ID}}",
-          "name": "Fenrir Booking"
+          "name": "[Your Company] Calendar"
         }
       }
     },
@@ -1381,7 +1381,7 @@
       "credentials": {
         "googleCalendarOAuth2Api": {
           "id": "{{GOOGLE_CALENDAR_CREDENTIAL_ID}}",
-          "name": "Fenrir Booking"
+          "name": "[Your Company] Calendar"
         }
       }
     },
